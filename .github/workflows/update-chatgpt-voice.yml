@@ -1,0 +1,43 @@
+name: Update ChatGPT Voice rules
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Avoid minute 0, where GitHub scheduled jobs are often busiest.
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-chatgpt-voice
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch official OpenAI list and convert
+        run: python scripts/update_chatgpt_voice.py
+
+      - name: Commit only when rules changed
+        shell: bash
+        run: |
+          if git diff --quiet -- rules/chatgpt-voice.txt; then
+            echo "No ChatGPT Voice rule changes."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rules/chatgpt-voice.txt
+          git commit -m "chore: update ChatGPT Voice IP ranges"
+          git push
